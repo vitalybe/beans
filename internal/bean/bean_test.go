@@ -613,7 +613,7 @@ func TestRenderWithParentAndBlocking(t *testing.T) {
 				Parent: "xyz789",
 			},
 			contains: []string{
-				"parent: xyz789",
+				"'[[xyz789]]'",
 			},
 		},
 		{
@@ -625,8 +625,8 @@ func TestRenderWithParentAndBlocking(t *testing.T) {
 			},
 			contains: []string{
 				"blocking:",
-				"- abc123",
-				"- def456",
+				"'[[abc123]]'",
+				"'[[def456]]'",
 			},
 		},
 		{
@@ -638,9 +638,9 @@ func TestRenderWithParentAndBlocking(t *testing.T) {
 				Blocking: []string{"abc123"},
 			},
 			contains: []string{
-				"parent: xyz789",
+				"'[[xyz789]]'",
 				"blocking:",
-				"- abc123",
+				"'[[abc123]]'",
 			},
 		},
 		{
@@ -809,6 +809,136 @@ blocked_by:
 	}
 }
 
+func TestParseWikilinkRelationships(t *testing.T) {
+	tests := []struct {
+		name              string
+		input             string
+		expectedParent    string
+		expectedBlocking  []string
+		expectedBlockedBy []string
+	}{
+		{
+			name: "wikilink parent",
+			input: `---
+title: Test
+status: todo
+parent: "[[beans-xyz]]"
+---`,
+			expectedParent: "beans-xyz",
+		},
+		{
+			name: "wikilink blocking",
+			input: `---
+title: Test
+status: todo
+blocking:
+  - "[[beans-abc]]"
+  - "[[beans-def]]"
+---`,
+			expectedBlocking: []string{"beans-abc", "beans-def"},
+		},
+		{
+			name: "wikilink blocked_by",
+			input: `---
+title: Test
+status: todo
+blocked_by:
+  - "[[beans-xyz]]"
+---`,
+			expectedBlockedBy: []string{"beans-xyz"},
+		},
+		{
+			name: "plain IDs still work (backward compat)",
+			input: `---
+title: Test
+status: todo
+parent: beans-xyz
+blocking:
+  - beans-abc
+blocked_by:
+  - beans-def
+---`,
+			expectedParent:    "beans-xyz",
+			expectedBlocking:  []string{"beans-abc"},
+			expectedBlockedBy: []string{"beans-def"},
+		},
+		{
+			name: "mixed wikilink and plain IDs",
+			input: `---
+title: Test
+status: todo
+blocking:
+  - "[[beans-abc]]"
+  - beans-def
+---`,
+			expectedBlocking: []string{"beans-abc", "beans-def"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			bean, err := Parse(strings.NewReader(tt.input))
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if bean.Parent != tt.expectedParent {
+				t.Errorf("Parent = %q, want %q", bean.Parent, tt.expectedParent)
+			}
+
+			if len(tt.expectedBlocking) > 0 {
+				if len(bean.Blocking) != len(tt.expectedBlocking) {
+					t.Errorf("Blocking count = %d, want %d", len(bean.Blocking), len(tt.expectedBlocking))
+				} else {
+					for i, expected := range tt.expectedBlocking {
+						if bean.Blocking[i] != expected {
+							t.Errorf("Blocking[%d] = %q, want %q", i, bean.Blocking[i], expected)
+						}
+					}
+				}
+			}
+
+			if len(tt.expectedBlockedBy) > 0 {
+				if len(bean.BlockedBy) != len(tt.expectedBlockedBy) {
+					t.Errorf("BlockedBy count = %d, want %d", len(bean.BlockedBy), len(tt.expectedBlockedBy))
+				} else {
+					for i, expected := range tt.expectedBlockedBy {
+						if bean.BlockedBy[i] != expected {
+							t.Errorf("BlockedBy[%d] = %q, want %q", i, bean.BlockedBy[i], expected)
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestWikilinkHelpers(t *testing.T) {
+	t.Run("wrapWikilink", func(t *testing.T) {
+		if got := wrapWikilink("beans-abc"); got != "[[beans-abc]]" {
+			t.Errorf("wrapWikilink(%q) = %q, want %q", "beans-abc", got, "[[beans-abc]]")
+		}
+		if got := wrapWikilink(""); got != "" {
+			t.Errorf("wrapWikilink(%q) = %q, want %q", "", got, "")
+		}
+	})
+
+	t.Run("unwrapWikilink", func(t *testing.T) {
+		if got := unwrapWikilink("[[beans-abc]]"); got != "beans-abc" {
+			t.Errorf("unwrapWikilink(%q) = %q, want %q", "[[beans-abc]]", got, "beans-abc")
+		}
+		if got := unwrapWikilink("beans-abc"); got != "beans-abc" {
+			t.Errorf("unwrapWikilink(%q) = %q, want %q", "beans-abc", got, "beans-abc")
+		}
+		if got := unwrapWikilink("[[incomplete"); got != "[[incomplete" {
+			t.Errorf("unwrapWikilink(%q) = %q, want %q", "[[incomplete", got, "[[incomplete")
+		}
+		if got := unwrapWikilink(""); got != "" {
+			t.Errorf("unwrapWikilink(%q) = %q, want %q", "", got, "")
+		}
+	})
+}
+
 func TestRenderWithBlockedBy(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -824,8 +954,8 @@ func TestRenderWithBlockedBy(t *testing.T) {
 			},
 			contains: []string{
 				"blocked_by:",
-				"- abc123",
-				"- def456",
+				"'[[abc123]]'",
+				"'[[def456]]'",
 			},
 		},
 		{
@@ -838,9 +968,9 @@ func TestRenderWithBlockedBy(t *testing.T) {
 			},
 			contains: []string{
 				"blocking:",
-				"- xyz789",
+				"'[[xyz789]]'",
 				"blocked_by:",
-				"- abc123",
+				"'[[abc123]]'",
 			},
 		},
 		{

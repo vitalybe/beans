@@ -132,6 +132,47 @@ func (b *Bean) RemoveBlockedBy(id string) {
 	b.BlockedBy = result
 }
 
+// wrapWikilink wraps a bean ID in [[ ]] for Obsidian-compatible wikilink syntax.
+func wrapWikilink(id string) string {
+	if id == "" {
+		return ""
+	}
+	return "[[" + id + "]]"
+}
+
+// unwrapWikilink strips [[ ]] from a string if present, returning the plain ID.
+// Returns the string unchanged if it doesn't have wikilink syntax.
+func unwrapWikilink(s string) string {
+	if strings.HasPrefix(s, "[[") && strings.HasSuffix(s, "]]") {
+		return s[2 : len(s)-2]
+	}
+	return s
+}
+
+// wrapWikilinks wraps each element in a slice.
+func wrapWikilinks(ids []string) []string {
+	if len(ids) == 0 {
+		return ids
+	}
+	out := make([]string, len(ids))
+	for i, id := range ids {
+		out[i] = wrapWikilink(id)
+	}
+	return out
+}
+
+// unwrapWikilinks unwraps each element in a slice.
+func unwrapWikilinks(ids []string) []string {
+	if len(ids) == 0 {
+		return ids
+	}
+	out := make([]string, len(ids))
+	for i, s := range ids {
+		out[i] = unwrapWikilink(s)
+	}
+	return out
+}
+
 // Bean represents an issue stored as a markdown file with front matter.
 type Bean struct {
 	// ID is the unique NanoID identifier (from filename).
@@ -197,9 +238,9 @@ func Parse(r io.Reader) (*Bean, error) {
 		CreatedAt: fm.CreatedAt,
 		UpdatedAt: fm.UpdatedAt,
 		Body:      bodyStr,
-		Parent:    fm.Parent,
-		Blocking:  fm.Blocking,
-		BlockedBy: fm.BlockedBy,
+		Parent:    unwrapWikilink(fm.Parent),
+		Blocking:  unwrapWikilinks(fm.Blocking),
+		BlockedBy: unwrapWikilinks(fm.BlockedBy),
 	}, nil
 }
 
@@ -227,9 +268,9 @@ func (b *Bean) Render() ([]byte, error) {
 		Tags:      b.Tags,
 		CreatedAt: b.CreatedAt,
 		UpdatedAt: b.UpdatedAt,
-		Parent:    b.Parent,
-		Blocking:  b.Blocking,
-		BlockedBy: b.BlockedBy,
+		Parent:    wrapWikilink(b.Parent),
+		Blocking:  wrapWikilinks(b.Blocking),
+		BlockedBy: wrapWikilinks(b.BlockedBy),
 	}
 
 	fmBytes, err := yaml.Marshal(&fm)
