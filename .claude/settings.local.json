@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(beans show:*)",
+      "Bash(grep:*)",
+      "Bash(head:*)",
+      "Bash(xargs cat:*)",
+      "Bash(find:*)",
+      "Bash(xargs -I {} sh -c 'echo \"\"=== {} ===\"\" && cat {}')",
+      "Bash(beans update:*)",
+      "Bash(go test:*)",
+      "Bash(mise test:*)",
+      "Bash(mise beans show:*)",
+      "Bash(git -C /Users/vitaly/git/beans log --oneline -5)"
+    ]
+  }
+}
