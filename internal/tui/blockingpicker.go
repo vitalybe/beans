@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/hmans/beans/internal/bean"
@@ -92,6 +93,8 @@ func (d blockingItemDelegate) Render(w io.Writer, m list.Model, index int, listI
 // blockingPickerModel is the model for the blocking picker view
 type blockingPickerModel struct {
 	list             list.Model
+	filterInput      textinput.Model
+	allItems         []list.Item      // all items (unfiltered)
 	beanID           string           // the bean we're setting blocking for
 	beanTitle        string           // the bean's title
 	originalBlocking map[string]bool  // original state (for computing diff)
@@ -151,22 +154,36 @@ func newBlockingPickerModel(beanID, beanTitle string, currentBlocking []string, 
 	// Account for: header(1) + subtitle(1) + blank(1) + blank(1) + description(1) + blank(1) + help(1) + border(2) = 9
 	listHeight := modalHeight - 9
 
+	// Account for filter input box (border 2 lines) in list height
+	listHeight -= 2
+
 	// Create delegate with pointer to pending state (so it can read live updates)
 	delegate := blockingItemDelegate{cfg: cfg, pendingBlocking: &pendingBlocking}
 
 	l := list.New(items, delegate, listWidth, listHeight)
 	l.Title = "Manage Blocking"
 	l.SetShowStatusBar(false)
-	l.SetFilteringEnabled(true)
+	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
 	l.SetShowPagination(false)
 	l.Styles.Title = listTitleStyle
 	l.Styles.TitleBar = lipgloss.NewStyle().Padding(0, 0, 0, 0)
-	l.Styles.FilterPrompt = lipgloss.NewStyle().Foreground(ui.ColorPrimary)
-	l.Styles.FilterCursor = lipgloss.NewStyle().Foreground(ui.ColorPrimary)
+
+	// Set up filter text input
+	ti := textinput.New()
+	ti.Placeholder = "Type to filter..."
+	ti.CharLimit = 100
+	ti.Width = listWidth - 2
+	ti.Focus()
+	ti.PromptStyle = lipgloss.NewStyle().Foreground(ui.ColorPrimary)
+	ti.TextStyle = lipgloss.NewStyle()
+	ti.PlaceholderStyle = lipgloss.NewStyle().Foreground(ui.ColorMuted)
+	ti.Prompt = ""
 
 	return blockingPickerModel{
 		list:             l,
+		filterInput:      ti,
+		allItems:         items,
 		beanID:           beanID,
 		beanTitle:        beanTitle,
 		originalBlocking: originalBlocking,
@@ -178,12 +195,10 @@ func newBlockingPickerModel(beanID, beanTitle string, currentBlocking []string, 
 }
 
 func (m blockingPickerModel) Init() tea.Cmd {
-	return nil
+	return textinput.Blink
 }
 
 func (m blockingPickerModel) Update(msg tea.Msg) (blockingPickerModel, tea.Cmd) {
-	var cmd tea.Cmd
-
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -191,62 +206,80 @@ func (m blockingPickerModel) Update(msg tea.Msg) (blockingPickerModel, tea.Cmd) 
 		modalWidth := max(40, min(80, msg.Width*60/100))
 		modalHeight := max(10, min(20, msg.Height*60/100))
 		listWidth := modalWidth - 6
-		listHeight := modalHeight - 9 // Account for description line
+		listHeight := modalHeight - 9 - 2 // -2 for filter input border
 		m.list.SetSize(listWidth, listHeight)
+		m.filterInput.Width = listWidth - 2
 
 	case tea.KeyMsg:
-		if m.list.FilterState() != list.Filtering {
-			switch msg.String() {
-			case " ":
-				// Toggle the selected item's pending state
-				// The delegate reads from pendingBlocking directly, so no need to update items
-				if item, ok := m.list.SelectedItem().(blockingItem); ok {
-					targetID := item.bean.ID
-					if m.pendingBlocking[targetID] {
-						delete(m.pendingBlocking, targetID)
-					} else {
-						m.pendingBlocking[targetID] = true
-					}
-				}
-				return m, nil
+		switch msg.Type {
+		case tea.KeyEnter:
+			// Confirm changes - compute diff and send message
+			var toAdd, toRemove []string
 
-			case "enter":
-				// Confirm changes - compute diff and send message
-				var toAdd, toRemove []string
-
-				// Find additions (in pending but not in original)
-				for id := range m.pendingBlocking {
-					if !m.originalBlocking[id] {
-						toAdd = append(toAdd, id)
-					}
-				}
-
-				// Find removals (in original but not in pending)
-				for id := range m.originalBlocking {
-					if !m.pendingBlocking[id] {
-						toRemove = append(toRemove, id)
-					}
-				}
-
-				return m, func() tea.Msg {
-					return blockingConfirmedMsg{
-						beanID:   m.beanID,
-						toAdd:    toAdd,
-						toRemove: toRemove,
-					}
-				}
-
-			case "esc", "backspace":
-				// Cancel - discard changes
-				return m, func() tea.Msg {
-					return closeBlockingPickerMsg{}
+			for id := range m.pendingBlocking {
+				if !m.originalBlocking[id] {
+					toAdd = append(toAdd, id)
 				}
 			}
+			for id := range m.originalBlocking {
+				if !m.pendingBlocking[id] {
+					toRemove = append(toRemove, id)
+				}
+			}
+
+			return m, func() tea.Msg {
+				return blockingConfirmedMsg{
+					beanID:   m.beanID,
+					toAdd:    toAdd,
+					toRemove: toRemove,
+				}
+			}
+
+		case tea.KeyEscape:
+			return m, func() tea.Msg {
+				return closeBlockingPickerMsg{}
+			}
+
+		case tea.KeyUp, tea.KeyDown:
+			var cmd tea.Cmd
+			m.list, cmd = m.list.Update(msg)
+			return m, cmd
+
+		case tea.KeySpace:
+			// Toggle the selected item's blocking state
+			if item, ok := m.list.SelectedItem().(blockingItem); ok {
+				targetID := item.bean.ID
+				if m.pendingBlocking[targetID] {
+					delete(m.pendingBlocking, targetID)
+				} else {
+					m.pendingBlocking[targetID] = true
+				}
+			}
+			return m, nil
+
+		default:
+			// Send all other keys to the text input for filtering
+			var cmd tea.Cmd
+			m.filterInput, cmd = m.filterInput.Update(msg)
+			m.applyFilter()
+			return m, cmd
 		}
 	}
 
+	var cmds []tea.Cmd
+	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
-	return m, cmd
+	cmds = append(cmds, cmd)
+	m.filterInput, cmd = m.filterInput.Update(msg)
+	cmds = append(cmds, cmd)
+	return m, tea.Batch(cmds...)
+}
+
+// applyFilter updates the list items based on the current filter input value
+func (m *blockingPickerModel) applyFilter() {
+	term := m.filterInput.Value()
+	filtered := fuzzyFilterItems(term, m.allItems)
+	m.list.SetItems(filtered)
 }
 
 func (m blockingPickerModel) View() string {
@@ -254,12 +287,27 @@ func (m blockingPickerModel) View() string {
 		return "Loading..."
 	}
 
+	// Render filter input with a border
+	modalWidth := max(40, min(80, m.width*60/100))
+	filterBox := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(ui.ColorMuted).
+		Padding(0, 1).
+		Width(modalWidth - 6). // border(2) + padding(4)
+		Render(m.filterInput.View())
+
+	// Custom help for blocking picker
+	help := helpKeyStyle.Render("space") + " " + helpStyle.Render("toggle") + "  " +
+		helpKeyStyle.Render("enter") + " " + helpStyle.Render("confirm") + "  " +
+		helpKeyStyle.Render("esc") + " " + helpStyle.Render("cancel")
+
 	return renderPickerModal(pickerModalConfig{
 		Title:       "Manage Blocking",
 		BeanTitle:   m.beanTitle,
 		BeanID:      m.beanID,
+		FilterInput: filterBox,
 		ListContent: m.list.View(),
-		Description: "space toggle, enter confirm, esc cancel",
+		HelpText:    help,
 		Width:       m.width,
 		WidthPct:    60,
 		MaxWidth:    80,

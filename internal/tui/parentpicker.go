@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/hmans/beans/internal/bean"
@@ -84,10 +85,12 @@ func (d parentItemDelegate) Render(w io.Writer, m list.Model, index int, listIte
 // parentPickerModel is the model for the parent picker view
 type parentPickerModel struct {
 	list          list.Model
-	beanIDs       []string // the beans we're setting the parent for
-	beanTitle     string   // display title (single title or "N selected beans")
-	beanTypes     []string // types of the beans (to filter eligible parents)
-	currentParent string   // current parent ID (to highlight, only for single bean)
+	filterInput   textinput.Model
+	allItems      []list.Item // all items (unfiltered)
+	beanIDs       []string    // the beans we're setting the parent for
+	beanTitle     string      // display title (single title or "N selected beans")
+	beanTypes     []string    // types of the beans (to filter eligible parents)
+	currentParent string      // current parent ID (to highlight, only for single bean)
 	width         int
 	height        int
 }
@@ -188,24 +191,38 @@ func newParentPickerModel(beanIDs []string, beanTitle string, beanTypes []string
 	listWidth := modalWidth - 6  // border (2) + padding (4)
 	listHeight := modalHeight - 7 // border (2) + subtitle (1) + help (1) + padding (3)
 
+	// Account for filter input box (border 2 lines) in list height
+	listHeight -= 2
+
 	l := list.New(items, delegate, listWidth, listHeight)
 	l.Title = "Select Parent"
 	l.SetShowStatusBar(false)
-	l.SetFilteringEnabled(true)
+	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
 	l.SetShowPagination(false)
 	l.Styles.Title = listTitleStyle
 	l.Styles.TitleBar = lipgloss.NewStyle().Padding(0, 0, 0, 0)
-	l.Styles.FilterPrompt = lipgloss.NewStyle().Foreground(ui.ColorPrimary)
-	l.Styles.FilterCursor = lipgloss.NewStyle().Foreground(ui.ColorPrimary)
 
 	// Select the current parent if set
 	if selectedIndex > 0 && selectedIndex < len(items) {
 		l.Select(selectedIndex)
 	}
 
+	// Set up filter text input
+	ti := textinput.New()
+	ti.Placeholder = "Type to filter..."
+	ti.CharLimit = 100
+	ti.Width = listWidth - 2
+	ti.Focus()
+	ti.PromptStyle = lipgloss.NewStyle().Foreground(ui.ColorPrimary)
+	ti.TextStyle = lipgloss.NewStyle()
+	ti.PlaceholderStyle = lipgloss.NewStyle().Foreground(ui.ColorMuted)
+	ti.Prompt = ""
+
 	return parentPickerModel{
 		list:          l,
+		filterInput:   ti,
+		allItems:      items,
 		beanIDs:       beanIDs,
 		beanTitle:     beanTitle,
 		beanTypes:     beanTypes,
@@ -257,12 +274,10 @@ func collectDescendants(beanID string, allBeans []*bean.Bean) map[string]bool {
 }
 
 func (m parentPickerModel) Init() tea.Cmd {
-	return nil
+	return textinput.Blink
 }
 
 func (m parentPickerModel) Update(msg tea.Msg) (parentPickerModel, tea.Cmd) {
-	var cmd tea.Cmd
-
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -271,34 +286,69 @@ func (m parentPickerModel) Update(msg tea.Msg) (parentPickerModel, tea.Cmd) {
 		modalWidth := max(40, min(80, msg.Width*60/100))
 		modalHeight := max(10, min(20, msg.Height*60/100))
 		listWidth := modalWidth - 6
-		listHeight := modalHeight - 7
+		listHeight := modalHeight - 7 - 2 // -2 for filter input border
 		m.list.SetSize(listWidth, listHeight)
+		m.filterInput.Width = listWidth - 2
 
 	case tea.KeyMsg:
-		if m.list.FilterState() != list.Filtering {
-			switch msg.String() {
-			case "enter":
-				switch item := m.list.SelectedItem().(type) {
-				case clearParentItem:
-					return m, func() tea.Msg {
-						return parentSelectedMsg{beanIDs: m.beanIDs, parentID: ""}
-					}
-				case parentItem:
-					return m, func() tea.Msg {
-						return parentSelectedMsg{beanIDs: m.beanIDs, parentID: item.bean.ID}
-					}
-				}
-			case "esc", "backspace":
-				// Return without selecting
+		switch msg.Type {
+		case tea.KeyEnter:
+			switch item := m.list.SelectedItem().(type) {
+			case clearParentItem:
 				return m, func() tea.Msg {
-					return closeParentPickerMsg{}
+					return parentSelectedMsg{beanIDs: m.beanIDs, parentID: ""}
+				}
+			case parentItem:
+				return m, func() tea.Msg {
+					return parentSelectedMsg{beanIDs: m.beanIDs, parentID: item.bean.ID}
 				}
 			}
+		case tea.KeyEscape:
+			return m, func() tea.Msg {
+				return closeParentPickerMsg{}
+			}
+		case tea.KeyUp, tea.KeyDown:
+			var cmd tea.Cmd
+			m.list, cmd = m.list.Update(msg)
+			return m, cmd
+		default:
+			// Send all other keys to the text input for filtering
+			var cmd tea.Cmd
+			m.filterInput, cmd = m.filterInput.Update(msg)
+			m.applyFilter()
+			return m, cmd
 		}
 	}
 
+	var cmds []tea.Cmd
+	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
-	return m, cmd
+	cmds = append(cmds, cmd)
+	m.filterInput, cmd = m.filterInput.Update(msg)
+	cmds = append(cmds, cmd)
+	return m, tea.Batch(cmds...)
+}
+
+// applyFilter updates the list items based on the current filter input value
+func (m *parentPickerModel) applyFilter() {
+	term := m.filterInput.Value()
+
+	// clearParentItem is always visible; filter only the parentItems
+	var parentItems []list.Item
+	for _, item := range m.allItems {
+		if _, ok := item.(clearParentItem); !ok {
+			parentItems = append(parentItems, item)
+		}
+	}
+
+	filtered := fuzzyFilterItems(term, parentItems)
+
+	// Prepend the clearParentItem
+	result := make([]list.Item, 0, len(filtered)+1)
+	result = append(result, clearParentItem{})
+	result = append(result, filtered...)
+
+	m.list.SetItems(result)
 }
 
 func (m parentPickerModel) View() string {
@@ -312,10 +362,20 @@ func (m parentPickerModel) View() string {
 		beanID = m.beanIDs[0]
 	}
 
+	// Render filter input with a border
+	modalWidth := max(40, min(80, m.width*60/100))
+	filterBox := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(ui.ColorMuted).
+		Padding(0, 1).
+		Width(modalWidth - 6). // border(2) + padding(4)
+		Render(m.filterInput.View())
+
 	return renderPickerModal(pickerModalConfig{
 		Title:       "Select Parent",
 		BeanTitle:   m.beanTitle,
 		BeanID:      beanID,
+		FilterInput: filterBox,
 		ListContent: m.list.View(),
 		Width:       m.width,
 		WidthPct:    60,

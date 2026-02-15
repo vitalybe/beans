@@ -3,6 +3,7 @@ package tui
 import (
 	"strings"
 
+	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/hmans/beans/internal/ui"
 )
@@ -12,8 +13,10 @@ type pickerModalConfig struct {
 	Title       string // e.g., "Select Status"
 	BeanTitle   string // the bean's title
 	BeanID      string // the bean's ID
+	FilterInput string // rendered filter input (optional)
 	ListContent string // the rendered list
 	Description string // optional description shown below list
+	HelpText    string // custom help footer (overrides default "enter select esc cancel")
 	Width       int    // screen width
 	WidthPct    int    // modal width percentage (default 50)
 	MaxWidth    int    // max modal width (default 60)
@@ -45,9 +48,11 @@ func renderPickerModal(cfg pickerModalConfig) string {
 	subtitle := ui.Muted.Render(cfg.BeanID)
 
 	// Help footer
-	help := helpKeyStyle.Render("enter") + " " + helpStyle.Render("select") + "  " +
-		helpKeyStyle.Render("/") + " " + helpStyle.Render("filter") + "  " +
-		helpKeyStyle.Render("esc") + " " + helpStyle.Render("cancel")
+	help := cfg.HelpText
+	if help == "" {
+		help = helpKeyStyle.Render("enter") + " " + helpStyle.Render("select") + "  " +
+			helpKeyStyle.Render("esc") + " " + helpStyle.Render("cancel")
+	}
 
 	// Border style
 	border := lipgloss.NewStyle().
@@ -57,12 +62,16 @@ func renderPickerModal(cfg pickerModalConfig) string {
 		Width(modalWidth)
 
 	// Assemble content
-	var content string
-	if cfg.Description != "" {
-		content = header + "\n" + subtitle + "\n\n" + cfg.ListContent + "\n\n" + cfg.Description + "\n\n" + help
-	} else {
-		content = header + "\n" + subtitle + "\n\n" + cfg.ListContent + "\n\n" + help
+	parts := []string{header, subtitle}
+	if cfg.FilterInput != "" {
+		parts = append(parts, cfg.FilterInput)
 	}
+	parts = append(parts, cfg.ListContent)
+	if cfg.Description != "" {
+		parts = append(parts, cfg.Description)
+	}
+	parts = append(parts, help)
+	content := strings.Join(parts, "\n\n")
 
 	return border.Render(content)
 }
@@ -129,6 +138,26 @@ func overlayLine(bgLine, modalLine string, startX, maxWidth int) string {
 
 	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#555"))
 	return dimStyle.Render(prefix) + modalLine + dimStyle.Render(suffix)
+}
+
+// fuzzyFilterItems filters items using the same fuzzy matching as bubbles/list.
+// Returns all items when term is empty, otherwise returns matches in rank order.
+func fuzzyFilterItems(term string, allItems []list.Item) []list.Item {
+	if term == "" {
+		return allItems
+	}
+
+	targets := make([]string, len(allItems))
+	for i, item := range allItems {
+		targets[i] = item.FilterValue()
+	}
+
+	ranks := list.DefaultFilter(term, targets)
+	result := make([]list.Item, len(ranks))
+	for i, rank := range ranks {
+		result[i] = allItems[rank.Index]
+	}
+	return result
 }
 
 // stripAnsi removes ANSI escape codes from a string
