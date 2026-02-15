@@ -84,7 +84,6 @@ func (r *beanResolver) Children(ctx context.Context, obj *bean.Bean, filter *mod
 // CreateBean is the resolver for the createBean field.
 func (r *mutationResolver) CreateBean(ctx context.Context, input model.CreateBeanInput) (*bean.Bean, error) {
 	b := &bean.Bean{
-		Slug:     bean.Slugify(input.Title),
 		Title:    input.Title,
 		Type:     "task", // default
 		Blocking: []string{},

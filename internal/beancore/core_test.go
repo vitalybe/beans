@@ -54,7 +54,6 @@ func createTestBean(t *testing.T, core *Core, id, title, status string) *bean.Be
 	t.Helper()
 	b := &bean.Bean{
 		ID:     id,
-		Slug:   bean.Slugify(title),
 		Title:  title,
 		Status: status,
 	}
@@ -127,7 +126,7 @@ func TestCreate(t *testing.T) {
 	}
 
 	// Check file exists
-	expectedPath := filepath.Join(beansDir, "abc1--test-bean.md")
+	expectedPath := filepath.Join(beansDir, "abc1.md")
 	if _, err := os.Stat(expectedPath); os.IsNotExist(err) {
 		t.Errorf("bean file not created at %s", expectedPath)
 	}
@@ -141,8 +140,8 @@ func TestCreate(t *testing.T) {
 	}
 
 	// Check Path was set
-	if b.Path != "abc1--test-bean.md" {
-		t.Errorf("Path = %q, want %q", b.Path, "abc1--test-bean.md")
+	if b.Path != "abc1.md" {
+		t.Errorf("Path = %q, want %q", b.Path, "abc1.md")
 	}
 
 	// Check in-memory state
@@ -435,11 +434,11 @@ func TestFullPath(t *testing.T) {
 
 	b := &bean.Bean{
 		ID:   "abc1",
-		Path: "abc1--test.md",
+		Path: "abc1.md",
 	}
 
 	got := core.FullPath(b)
-	want := "/path/to/.beans/abc1--test.md"
+	want := "/path/to/.beans/abc1.md"
 
 	if got != want {
 		t.Errorf("FullPath() = %q, want %q", got, want)
@@ -1156,7 +1155,7 @@ func TestArchive(t *testing.T) {
 	}
 
 	// Verify file no longer in main directory
-	mainPath := filepath.Join(beansDir, "arc1--to-archive.md")
+	mainPath := filepath.Join(beansDir, "arc1.md")
 	if _, err := os.Stat(mainPath); !os.IsNotExist(err) {
 		t.Error("bean file should not exist in main directory")
 	}
@@ -1168,8 +1167,8 @@ func TestArchive(t *testing.T) {
 	}
 
 	// Verify path is updated
-	if archived.Path != filepath.Join(ArchiveDir, "arc1--to-archive.md") {
-		t.Errorf("Path = %q, want %q", archived.Path, filepath.Join(ArchiveDir, "arc1--to-archive.md"))
+	if archived.Path != filepath.Join(ArchiveDir, "arc1.md") {
+		t.Errorf("Path = %q, want %q", archived.Path, filepath.Join(ArchiveDir, "arc1.md"))
 	}
 }
 
@@ -1230,8 +1229,8 @@ func TestUnarchive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Get() error = %v", err)
 	}
-	if unarchived.Path != "una1--to-unarchive.md" {
-		t.Errorf("Path = %q, want %q", unarchived.Path, "una1--to-unarchive.md")
+	if unarchived.Path != "una1.md" {
+		t.Errorf("Path = %q, want %q", unarchived.Path, "una1.md")
 	}
 }
 
@@ -1316,8 +1315,8 @@ func TestArchivedBeansAlwaysLoaded(t *testing.T) {
 		if !core2.IsArchived("arc1") {
 			t.Error("archived bean should be identified as archived")
 		}
-		if b.Path != "archive/arc1--archived-bean.md" {
-			t.Errorf("archived bean path = %q, want %q", b.Path, "archive/arc1--archived-bean.md")
+		if b.Path != "archive/arc1.md" {
+			t.Errorf("archived bean path = %q, want %q", b.Path, "archive/arc1.md")
 		}
 	})
 }
@@ -1505,13 +1504,13 @@ func TestLoadAndUnarchive(t *testing.T) {
 	}
 
 	// File should be in main directory, not archive
-	mainPath := filepath.Join(beansDir, "lau1--load-and-unarchive.md")
+	mainPath := filepath.Join(beansDir, "lau1.md")
 	if _, err := os.Stat(mainPath); os.IsNotExist(err) {
 		t.Error("bean file should exist in main directory after LoadAndUnarchive")
 	}
 
 	// File should NOT be in archive directory
-	archivePath := filepath.Join(beansDir, "archive", "lau1--load-and-unarchive.md")
+	archivePath := filepath.Join(beansDir, "archive", "lau1.md")
 	if _, err := os.Stat(archivePath); !os.IsNotExist(err) {
 		t.Error("bean file should not exist in archive directory after LoadAndUnarchive")
 	}

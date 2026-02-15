@@ -442,15 +442,29 @@ func (c *Core) Update(b *bean.Bean, ifMatch *string) error {
 
 // saveToDisk writes a bean to the filesystem.
 func (c *Core) saveToDisk(b *bean.Bean) error {
-	// Determine the file path
-	var path string
+	// Determine the canonical filename (ID-only)
+	canonicalFilename := bean.BuildFilename(b.ID)
+
+	var oldPath string
 	if b.Path != "" {
-		path = filepath.Join(c.root, b.Path)
+		// Check if the existing path uses an old format (has slug in filename)
+		dir := filepath.Dir(b.Path)
+		oldFilename := filepath.Base(b.Path)
+		newFilename := canonicalFilename
+		if dir != "." {
+			newFilename = filepath.Join(dir, canonicalFilename)
+		}
+
+		if oldFilename != canonicalFilename {
+			// Old format file needs renaming
+			oldPath = filepath.Join(c.root, b.Path)
+			b.Path = newFilename
+		}
 	} else {
-		filename := bean.BuildFilename(b.ID, b.Slug)
-		path = filepath.Join(c.root, filename)
-		b.Path = filename
+		b.Path = canonicalFilename
 	}
+
+	path := filepath.Join(c.root, b.Path)
 
 	// Ensure parent directory exists
 	dir := filepath.Dir(path)
@@ -466,6 +480,11 @@ func (c *Core) saveToDisk(b *bean.Bean) error {
 
 	if err := os.WriteFile(path, content, 0644); err != nil {
 		return fmt.Errorf("writing file: %w", err)
+	}
+
+	// Remove old file if it was renamed
+	if oldPath != "" {
+		_ = os.Remove(oldPath) // best-effort cleanup
 	}
 
 	return nil

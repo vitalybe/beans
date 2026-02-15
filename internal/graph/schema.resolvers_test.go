@@ -35,7 +35,6 @@ func createTestBean(t *testing.T, core *beancore.Core, id, title, status string)
 	t.Helper()
 	b := &bean.Bean{
 		ID:     id,
-		Slug:   bean.Slugify(title),
 		Title:  title,
 		Status: status,
 	}

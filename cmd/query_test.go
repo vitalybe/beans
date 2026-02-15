@@ -41,7 +41,6 @@ func createQueryTestBean(t *testing.T, c *beancore.Core, id, title, status strin
 	t.Helper()
 	b := &bean.Bean{
 		ID:     id,
-		Slug:   bean.Slugify(title),
 		Title:  title,
 		Status: status,
 	}
