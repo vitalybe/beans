@@ -124,6 +124,9 @@ type listModel struct {
 	// Sort options
 	sortOpts SortOptions
 
+	// Whether to include completed/scrapped beans
+	showDone bool
+
 	// Status message to display in footer
 	statusMessage string
 }
@@ -148,6 +151,7 @@ func newListModel(resolver *graph.Resolver, cfg *config.Config, sortOpts SortOpt
 		config:        cfg,
 		selectedBeans: selectedBeans,
 		sortOpts:      sortOpts,
+		showDone:      sortOpts.ShowDone,
 	}
 }
 
@@ -172,10 +176,18 @@ func (m listModel) Init() tea.Cmd {
 }
 
 func (m listModel) loadBeans() tea.Msg {
-	// Build filter if tag filter is set
+	// Build filter
 	var filter *model.BeanFilter
 	if m.tagFilter != "" {
 		filter = &model.BeanFilter{Tags: []string{m.tagFilter}}
+	}
+
+	// Default: hide completed/scrapped beans unless --show-done
+	if !m.showDone {
+		if filter == nil {
+			filter = &model.BeanFilter{}
+		}
+		filter.ExcludeStatus = append(filter.ExcludeStatus, "completed", "scrapped")
 	}
 
 	// Query filtered beans

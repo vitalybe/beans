@@ -94,10 +94,11 @@ type openParentPickerMsg struct {
 	currentParent string   // Only meaningful for single bean
 }
 
-// SortOptions configures how beans are sorted.
+// SortOptions configures how beans are sorted and filtered.
 type SortOptions struct {
-	SortBy  string // Sort field: created, updated, status, priority, id, or "" for default
-	Reverse bool   // Whether to reverse the sort order
+	SortBy   string // Sort field: created, updated, status, priority, id, or "" for default
+	Reverse  bool   // Whether to reverse the sort order
+	ShowDone bool   // Whether to include completed and scrapped beans
 }
 
 // App is the main TUI application model

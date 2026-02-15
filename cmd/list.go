@@ -36,6 +36,7 @@ var (
 	listSort       string
 	listSortr      string
 	listFull       bool
+	listShowDone   bool
 )
 
 var listCmd = &cobra.Command{
@@ -103,6 +104,11 @@ Search Syntax (--search/-S):
 
 		if listIsBlocked {
 			filter.IsBlocked = &listIsBlocked
+		}
+
+		// Default: hide completed/scrapped beans unless --show-done or explicit --status is set
+		if !listShowDone && len(listStatus) == 0 && !listReady {
+			filter.ExcludeStatus = append(filter.ExcludeStatus, "completed", "scrapped")
 		}
 
 		// --ready: beans available to start (not blocked, excludes in-progress/completed/scrapped/draft)
@@ -224,5 +230,6 @@ func init() {
 	listCmd.Flags().StringVar(&listSort, "sort", "", "Sort by: created, updated, status, priority, id (default: status, priority, type, title)")
 	listCmd.Flags().StringVar(&listSortr, "sortr", "", "Sort by (reversed): created, updated, status, priority, id")
 	listCmd.Flags().BoolVar(&listFull, "full", false, "Include bean body in JSON output")
+	listCmd.Flags().BoolVar(&listShowDone, "show-done", false, "Include completed and scrapped beans")
 	rootCmd.AddCommand(listCmd)
 }
