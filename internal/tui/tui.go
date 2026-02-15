@@ -94,6 +94,12 @@ type openParentPickerMsg struct {
 	currentParent string   // Only meaningful for single bean
 }
 
+// SortOptions configures how beans are sorted.
+type SortOptions struct {
+	SortBy  string // Sort field: created, updated, status, priority, id, or "" for default
+	Reverse bool   // Whether to reverse the sort order
+}
+
 // App is the main TUI application model
 type App struct {
 	state          viewState
@@ -128,14 +134,14 @@ type App struct {
 }
 
 // New creates a new TUI application
-func New(core *beancore.Core, cfg *config.Config) *App {
+func New(core *beancore.Core, cfg *config.Config, sortOpts SortOptions) *App {
 	resolver := &graph.Resolver{Core: core}
 	return &App{
 		state:    viewList,
 		core:     core,
 		resolver: resolver,
 		config:   cfg,
-		list:     newListModel(resolver, cfg),
+		list:     newListModel(resolver, cfg, sortOpts),
 		preview:  newPreviewModel(nil, 0, 0),
 	}
 }
@@ -711,8 +717,8 @@ func getEditor() string {
 }
 
 // Run starts the TUI application with file watching
-func Run(core *beancore.Core, cfg *config.Config) error {
-	app := New(core, cfg)
+func Run(core *beancore.Core, cfg *config.Config, sortOpts SortOptions) error {
+	app := New(core, cfg, sortOpts)
 	p := tea.NewProgram(app, tea.WithAltScreen())
 
 	// Store reference to program for sending messages from watcher

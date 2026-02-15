@@ -22,7 +22,7 @@ func TestSortBeans(t *testing.T) {
 			{ID: "a1"},
 			{ID: "b2"},
 		}
-		sortBeans(beans, "id", testCfg)
+		bean.SortBeans(beans, "id", false, testCfg)
 
 		if beans[0].ID != "a1" || beans[1].ID != "b2" || beans[2].ID != "c3" {
 			t.Errorf("sort by id: got [%s, %s, %s], want [a1, b2, c3]",
@@ -36,7 +36,7 @@ func TestSortBeans(t *testing.T) {
 			{ID: "new", CreatedAt: &now},
 			{ID: "mid", CreatedAt: &earlier},
 		}
-		sortBeans(beans, "created", testCfg)
+		bean.SortBeans(beans, "created", false, testCfg)
 
 		// Should be newest first
 		if beans[0].ID != "new" || beans[1].ID != "mid" || beans[2].ID != "old" {
@@ -51,7 +51,7 @@ func TestSortBeans(t *testing.T) {
 			{ID: "has", CreatedAt: &now},
 			{ID: "nil2", CreatedAt: nil},
 		}
-		sortBeans(beans, "created", testCfg)
+		bean.SortBeans(beans, "created", false, testCfg)
 
 		// Non-nil should come first, then nil sorted by ID
 		if beans[0].ID != "has" {
@@ -65,7 +65,7 @@ func TestSortBeans(t *testing.T) {
 			{ID: "new", UpdatedAt: &now},
 			{ID: "mid", UpdatedAt: &earlier},
 		}
-		sortBeans(beans, "updated", testCfg)
+		bean.SortBeans(beans, "updated", false, testCfg)
 
 		// Should be newest first
 		if beans[0].ID != "new" || beans[1].ID != "mid" || beans[2].ID != "old" {
@@ -81,7 +81,7 @@ func TestSortBeans(t *testing.T) {
 			{ID: "i1", Status: "in-progress"},
 			{ID: "t2", Status: "todo"},
 		}
-		sortBeans(beans, "status", testCfg)
+		bean.SortBeans(beans, "status", false, testCfg)
 
 		// Should be ordered by status config order (in-progress, todo, draft, completed, scrapped), then by ID within same status
 		expected := []string{"i1", "t1", "t2", "c1"}
@@ -100,7 +100,7 @@ func TestSortBeans(t *testing.T) {
 			{ID: "completed-task", Status: "completed", Type: "task"},
 			{ID: "todo-bug", Status: "todo", Type: "bug"},
 		}
-		sortBeans(beans, "", testCfg)
+		bean.SortBeans(beans, "", false, testCfg)
 
 		// Should be: non-archive first (sorted by type order from DefaultTypes: milestone, epic, bug, feature, task),
 		// then archive (sorted by type)
@@ -112,6 +112,76 @@ func TestSortBeans(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("reverse sort by id", func(t *testing.T) {
+		beans := []*bean.Bean{
+			{ID: "c3"},
+			{ID: "a1"},
+			{ID: "b2"},
+		}
+		bean.SortBeans(beans, "id", true, testCfg)
+
+		if beans[0].ID != "c3" || beans[1].ID != "b2" || beans[2].ID != "a1" {
+			t.Errorf("reverse sort by id: got [%s, %s, %s], want [c3, b2, a1]",
+				beans[0].ID, beans[1].ID, beans[2].ID)
+		}
+	})
+
+	t.Run("reverse sort by created", func(t *testing.T) {
+		beans := []*bean.Bean{
+			{ID: "old", CreatedAt: &evenEarlier},
+			{ID: "new", CreatedAt: &now},
+			{ID: "mid", CreatedAt: &earlier},
+		}
+		bean.SortBeans(beans, "created", true, testCfg)
+
+		// Reversed: oldest first
+		if beans[0].ID != "old" || beans[1].ID != "mid" || beans[2].ID != "new" {
+			t.Errorf("reverse sort by created: got [%s, %s, %s], want [old, mid, new]",
+				beans[0].ID, beans[1].ID, beans[2].ID)
+		}
+	})
+
+	t.Run("reverse sort by status", func(t *testing.T) {
+		beans := []*bean.Bean{
+			{ID: "c1", Status: "completed"},
+			{ID: "t1", Status: "todo"},
+			{ID: "i1", Status: "in-progress"},
+		}
+		bean.SortBeans(beans, "status", true, testCfg)
+
+		// Reversed: completed first, then todo, then in-progress
+		expected := []string{"c1", "t1", "i1"}
+		for i, want := range expected {
+			if beans[i].ID != want {
+				t.Errorf("reverse sort by status[%d]: got %q, want %q", i, beans[i].ID, want)
+			}
+		}
+	})
+}
+
+func TestListSortFlagMutualExclusion(t *testing.T) {
+	tests := []struct {
+		name        string
+		sort        string
+		sortr       string
+		expectError bool
+	}{
+		{"neither flag", "", "", false},
+		{"only --sort", "id", "", false},
+		{"only --sortr", "", "id", false},
+		{"both flags", "id", "id", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hasError := tt.sort != "" && tt.sortr != ""
+			if hasError != tt.expectError {
+				t.Errorf("sort=%q, sortr=%q: got error=%v, want error=%v",
+					tt.sort, tt.sortr, hasError, tt.expectError)
+			}
+		})
+	}
 }
 
 func TestListReadyFlagMutualExclusion(t *testing.T) {
@@ -164,4 +234,3 @@ func TestTruncate(t *testing.T) {
 		})
 	}
 }
-

@@ -2,7 +2,189 @@ package bean
 
 import (
 	"testing"
+	"time"
 )
+
+// mockSortConfig implements SortConfig for testing
+type mockSortConfig struct {
+	statuses   []string
+	priorities []string
+	types      []string
+}
+
+func (m mockSortConfig) StatusNames() []string   { return m.statuses }
+func (m mockSortConfig) PriorityNames() []string  { return m.priorities }
+func (m mockSortConfig) TypeNames() []string      { return m.types }
+
+func TestSortBeans(t *testing.T) {
+	cfg := mockSortConfig{
+		statuses:   []string{"in-progress", "todo", "draft", "completed", "scrapped"},
+		priorities: []string{"critical", "high", "normal", "low", "deferred"},
+		types:      []string{"milestone", "epic", "bug", "feature", "task"},
+	}
+
+	t.Run("sort by id", func(t *testing.T) {
+		beans := []*Bean{
+			{ID: "c3"},
+			{ID: "a1"},
+			{ID: "b2"},
+		}
+		SortBeans(beans, "id", false, cfg)
+		if beans[0].ID != "a1" || beans[1].ID != "b2" || beans[2].ID != "c3" {
+			t.Errorf("got [%s, %s, %s], want [a1, b2, c3]", beans[0].ID, beans[1].ID, beans[2].ID)
+		}
+	})
+
+	t.Run("sort by id reversed", func(t *testing.T) {
+		beans := []*Bean{
+			{ID: "c3"},
+			{ID: "a1"},
+			{ID: "b2"},
+		}
+		SortBeans(beans, "id", true, cfg)
+		if beans[0].ID != "c3" || beans[1].ID != "b2" || beans[2].ID != "a1" {
+			t.Errorf("got [%s, %s, %s], want [c3, b2, a1]", beans[0].ID, beans[1].ID, beans[2].ID)
+		}
+	})
+
+	t.Run("sort by created", func(t *testing.T) {
+		now := time.Now()
+		earlier := now.Add(-1 * time.Hour)
+		evenEarlier := now.Add(-2 * time.Hour)
+		beans := []*Bean{
+			{ID: "old", CreatedAt: &evenEarlier},
+			{ID: "new", CreatedAt: &now},
+			{ID: "mid", CreatedAt: &earlier},
+		}
+		SortBeans(beans, "created", false, cfg)
+		if beans[0].ID != "new" || beans[1].ID != "mid" || beans[2].ID != "old" {
+			t.Errorf("got [%s, %s, %s], want [new, mid, old]", beans[0].ID, beans[1].ID, beans[2].ID)
+		}
+	})
+
+	t.Run("sort by created reversed", func(t *testing.T) {
+		now := time.Now()
+		earlier := now.Add(-1 * time.Hour)
+		evenEarlier := now.Add(-2 * time.Hour)
+		beans := []*Bean{
+			{ID: "old", CreatedAt: &evenEarlier},
+			{ID: "new", CreatedAt: &now},
+			{ID: "mid", CreatedAt: &earlier},
+		}
+		SortBeans(beans, "created", true, cfg)
+		if beans[0].ID != "old" || beans[1].ID != "mid" || beans[2].ID != "new" {
+			t.Errorf("got [%s, %s, %s], want [old, mid, new]", beans[0].ID, beans[1].ID, beans[2].ID)
+		}
+	})
+
+	t.Run("sort by status", func(t *testing.T) {
+		beans := []*Bean{
+			{ID: "c1", Status: "completed"},
+			{ID: "t1", Status: "todo"},
+			{ID: "i1", Status: "in-progress"},
+		}
+		SortBeans(beans, "status", false, cfg)
+		expected := []string{"i1", "t1", "c1"}
+		for i, want := range expected {
+			if beans[i].ID != want {
+				t.Errorf("beans[%d].ID = %q, want %q", i, beans[i].ID, want)
+			}
+		}
+	})
+
+	t.Run("sort by status reversed", func(t *testing.T) {
+		beans := []*Bean{
+			{ID: "c1", Status: "completed"},
+			{ID: "t1", Status: "todo"},
+			{ID: "i1", Status: "in-progress"},
+		}
+		SortBeans(beans, "status", true, cfg)
+		expected := []string{"c1", "t1", "i1"}
+		for i, want := range expected {
+			if beans[i].ID != want {
+				t.Errorf("beans[%d].ID = %q, want %q", i, beans[i].ID, want)
+			}
+		}
+	})
+
+	t.Run("sort by priority", func(t *testing.T) {
+		beans := []*Bean{
+			{ID: "low", Status: "todo", Priority: "low"},
+			{ID: "crit", Status: "todo", Priority: "critical"},
+			{ID: "high", Status: "todo", Priority: "high"},
+		}
+		SortBeans(beans, "priority", false, cfg)
+		expected := []string{"crit", "high", "low"}
+		for i, want := range expected {
+			if beans[i].ID != want {
+				t.Errorf("beans[%d].ID = %q, want %q", i, beans[i].ID, want)
+			}
+		}
+	})
+
+	t.Run("sort by priority reversed", func(t *testing.T) {
+		beans := []*Bean{
+			{ID: "low", Status: "todo", Priority: "low"},
+			{ID: "crit", Status: "todo", Priority: "critical"},
+			{ID: "high", Status: "todo", Priority: "high"},
+		}
+		SortBeans(beans, "priority", true, cfg)
+		expected := []string{"low", "high", "crit"}
+		for i, want := range expected {
+			if beans[i].ID != want {
+				t.Errorf("beans[%d].ID = %q, want %q", i, beans[i].ID, want)
+			}
+		}
+	})
+
+	t.Run("default sort (empty sortBy)", func(t *testing.T) {
+		beans := []*Bean{
+			{ID: "1", Status: "completed", Type: "bug"},
+			{ID: "2", Status: "todo", Type: "feature"},
+			{ID: "3", Status: "todo", Type: "bug"},
+		}
+		SortBeans(beans, "", false, cfg)
+		// todo beans first (by type order: bug before feature), then completed
+		expected := []string{"3", "2", "1"}
+		for i, want := range expected {
+			if beans[i].ID != want {
+				t.Errorf("beans[%d].ID = %q, want %q", i, beans[i].ID, want)
+			}
+		}
+	})
+
+	t.Run("default sort reversed", func(t *testing.T) {
+		beans := []*Bean{
+			{ID: "1", Status: "completed", Type: "bug"},
+			{ID: "2", Status: "todo", Type: "feature"},
+			{ID: "3", Status: "todo", Type: "bug"},
+		}
+		SortBeans(beans, "", true, cfg)
+		// Reversed default: completed first, then todo (feature before bug)
+		expected := []string{"1", "2", "3"}
+		for i, want := range expected {
+			if beans[i].ID != want {
+				t.Errorf("beans[%d].ID = %q, want %q", i, beans[i].ID, want)
+			}
+		}
+	})
+
+	t.Run("empty slice", func(t *testing.T) {
+		beans := []*Bean{}
+		SortBeans(beans, "id", false, cfg)
+		if len(beans) != 0 {
+			t.Errorf("expected empty slice, got %d elements", len(beans))
+		}
+	})
+
+	t.Run("single element reversed", func(t *testing.T) {
+		beans := []*Bean{{ID: "only"}}
+		SortBeans(beans, "id", true, cfg)
+		if beans[0].ID != "only" {
+			t.Errorf("got %q, want \"only\"", beans[0].ID)
+		}
+	})
+}
 
 func TestSortByStatusPriorityAndType(t *testing.T) {
 	statusNames := []string{"draft", "todo", "in-progress", "completed"}

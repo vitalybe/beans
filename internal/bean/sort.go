@@ -5,6 +5,110 @@ import (
 	"strings"
 )
 
+// SortConfig provides the ordering configuration for sorting beans.
+type SortConfig interface {
+	StatusNames() []string
+	PriorityNames() []string
+	TypeNames() []string
+}
+
+// SortBeans sorts beans by the given sort field, optionally reversed.
+// Valid sortBy values: "created", "updated", "status", "priority", "id".
+// Empty sortBy uses the default sort (status > priority > type > title).
+func SortBeans(beans []*Bean, sortBy string, reverse bool, cfg SortConfig) {
+	statusNames := cfg.StatusNames()
+	priorityNames := cfg.PriorityNames()
+	typeNames := cfg.TypeNames()
+
+	switch sortBy {
+	case "created":
+		sort.Slice(beans, func(i, j int) bool {
+			if beans[i].CreatedAt == nil && beans[j].CreatedAt == nil {
+				return beans[i].ID < beans[j].ID
+			}
+			if beans[i].CreatedAt == nil {
+				return false
+			}
+			if beans[j].CreatedAt == nil {
+				return true
+			}
+			return beans[i].CreatedAt.After(*beans[j].CreatedAt)
+		})
+	case "updated":
+		sort.Slice(beans, func(i, j int) bool {
+			if beans[i].UpdatedAt == nil && beans[j].UpdatedAt == nil {
+				return beans[i].ID < beans[j].ID
+			}
+			if beans[i].UpdatedAt == nil {
+				return false
+			}
+			if beans[j].UpdatedAt == nil {
+				return true
+			}
+			return beans[i].UpdatedAt.After(*beans[j].UpdatedAt)
+		})
+	case "status":
+		statusOrder := make(map[string]int)
+		for i, s := range statusNames {
+			statusOrder[s] = i
+		}
+		sort.Slice(beans, func(i, j int) bool {
+			oi, oj := statusOrder[beans[i].Status], statusOrder[beans[j].Status]
+			if oi != oj {
+				return oi < oj
+			}
+			return beans[i].ID < beans[j].ID
+		})
+	case "priority":
+		priorityOrder := make(map[string]int)
+		for i, p := range priorityNames {
+			priorityOrder[p] = i
+		}
+		normalIdx := len(priorityNames)
+		for i, p := range priorityNames {
+			if p == "normal" {
+				normalIdx = i
+				break
+			}
+		}
+		sort.Slice(beans, func(i, j int) bool {
+			pi := normalIdx
+			if beans[i].Priority != "" {
+				if order, ok := priorityOrder[beans[i].Priority]; ok {
+					pi = order
+				}
+			}
+			pj := normalIdx
+			if beans[j].Priority != "" {
+				if order, ok := priorityOrder[beans[j].Priority]; ok {
+					pj = order
+				}
+			}
+			if pi != pj {
+				return pi < pj
+			}
+			return beans[i].ID < beans[j].ID
+		})
+	case "id":
+		sort.Slice(beans, func(i, j int) bool {
+			return beans[i].ID < beans[j].ID
+		})
+	default:
+		SortByStatusPriorityAndType(beans, statusNames, priorityNames, typeNames)
+	}
+
+	if reverse {
+		reverseSlice(beans)
+	}
+}
+
+// reverseSlice reverses a slice of beans in-place.
+func reverseSlice(beans []*Bean) {
+	for i, j := 0, len(beans)-1; i < j; i, j = i+1, j-1 {
+		beans[i], beans[j] = beans[j], beans[i]
+	}
+}
+
 // SortByStatusPriorityAndType sorts beans by status order, then priority, then type, then title.
 // This is the default sorting used by both CLI and TUI.
 // Unrecognized statuses, priorities, and types are sorted last within their category.

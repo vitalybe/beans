@@ -121,11 +121,14 @@ type listModel struct {
 	// Multi-select state
 	selectedBeans map[string]bool // IDs of beans marked for multi-edit
 
+	// Sort options
+	sortOpts SortOptions
+
 	// Status message to display in footer
 	statusMessage string
 }
 
-func newListModel(resolver *graph.Resolver, cfg *config.Config) listModel {
+func newListModel(resolver *graph.Resolver, cfg *config.Config, sortOpts SortOptions) listModel {
 	selectedBeans := make(map[string]bool)
 	delegate := itemDelegate{cfg: cfg, selectedBeans: &selectedBeans}
 
@@ -144,6 +147,7 @@ func newListModel(resolver *graph.Resolver, cfg *config.Config) listModel {
 		resolver:      resolver,
 		config:        cfg,
 		selectedBeans: selectedBeans,
+		sortOpts:      sortOpts,
 	}
 }
 
@@ -188,7 +192,7 @@ func (m listModel) loadBeans() tea.Msg {
 
 	// Sort function for tree building
 	sortFn := func(beans []*bean.Bean) {
-		bean.SortByStatusPriorityAndType(beans, m.config.StatusNames(), m.config.PriorityNames(), m.config.TypeNames())
+		bean.SortBeans(beans, m.sortOpts.SortBy, m.sortOpts.Reverse, m.config)
 	}
 
 	// Build tree and flatten it
