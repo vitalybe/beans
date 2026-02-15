@@ -17,7 +17,12 @@
       "Bash(./beans create:*)",
       "Bash(./beans list:*)",
       "Bash(python3:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(ls:*)",
+      "Bash(beans list:*)",
+      "Bash(git -C /Users/vitaly/git/beans add internal/ui/styles.go internal/ui/styles_test.go internal/ui/tree.go internal/tui/list.go)",
+      "Bash(git -C:*)",
+      "Bash(git -C /Users/vitaly/git/beans status)"
     ]
   }
 }
