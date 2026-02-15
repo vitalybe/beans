@@ -550,8 +550,10 @@ func RenderBeanRow(id, status, typeName, title string, cfg BeanRowConfig) string
 
 	// Blocked indicator (prepended to title)
 	var blockedIndicator string
+	blockedIndicatorWidth := 0
 	if cfg.IsBlocked && !cfg.Dimmed {
-		blockedIndicator = "🚫 "
+		blockedIndicator = lipgloss.NewStyle().Foreground(ColorDanger).Bold(true).Render("[B]") + " "
+		blockedIndicatorWidth = 4 // [B] + space
 	}
 
 	// Title (truncate if needed, accounting for priority symbol and blocked indicator width)
@@ -561,8 +563,8 @@ func RenderBeanRow(id, status, typeName, title string, cfg BeanRowConfig) string
 	if maxWidth > 0 && prioritySymbol != "" {
 		maxWidth -= 2 // Account for symbol + space
 	}
-	if maxWidth > 0 && blockedIndicator != "" {
-		maxWidth -= 3 // Account for emoji (2 wide) + space
+	if maxWidth > 0 && blockedIndicatorWidth > 0 {
+		maxWidth -= blockedIndicatorWidth
 	}
 	if maxWidth > 3 && len(title) > maxWidth {
 		displayTitle = title[:maxWidth-3] + "..."
@@ -601,8 +603,8 @@ func RenderBeanRow(id, status, typeName, title string, cfg BeanRowConfig) string
 		if prioritySymbol != "" {
 			titleLen += 2 // symbol + space
 		}
-		if blockedIndicator != "" {
-			titleLen += 3 // emoji (2 wide) + space
+		if blockedIndicatorWidth > 0 {
+			titleLen += blockedIndicatorWidth
 		}
 		padding := ""
 		if titleColWidth > titleLen {

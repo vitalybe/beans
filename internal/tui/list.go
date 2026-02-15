@@ -35,6 +35,7 @@ type itemDelegate struct {
 	cols          ui.ResponsiveColumns // cached responsive columns
 	idColWidth    int                  // ID column width (accounts for tree prefix)
 	selectedBeans *map[string]bool     // pointer to marked beans for multi-select
+	blockedSet    map[string]bool      // beans blocked by others
 }
 
 func newItemDelegate(cfg *config.Config) itemDelegate {
@@ -81,7 +82,7 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 			TypeColor:     colors.TypeColor,
 			PriorityColor: colors.PriorityColor,
 			Priority:      item.bean.Priority,
-			IsBlocked:     len(item.bean.BlockedBy) > 0,
+			IsBlocked:     d.blockedSet[item.bean.ID],
 			IsArchive:     colors.IsArchive,
 			MaxTitleWidth: maxTitleWidth,
 			ShowCursor:    true,
@@ -114,6 +115,9 @@ type listModel struct {
 	hasTags    bool                 // whether any beans have tags
 	cols       ui.ResponsiveColumns // calculated responsive columns
 	idColWidth int                  // ID column width (accounts for tree depth)
+
+	// Blocked set (considers both blocked_by and blocking relationships)
+	blockedSet map[string]bool
 
 	// Active filters
 	tagFilter string // if set, only show beans with this tag
@@ -157,8 +161,9 @@ func newListModel(resolver *graph.Resolver, cfg *config.Config, sortOpts SortOpt
 
 // beansLoadedMsg is sent when beans are loaded
 type beansLoadedMsg struct {
-	items      []ui.FlatItem // flattened tree items
-	idColWidth int           // calculated ID column width for tree
+	items      []ui.FlatItem   // flattened tree items
+	idColWidth int             // calculated ID column width for tree
+	blockedSet map[string]bool // beans blocked by others (including via blocking links)
 }
 
 // errMsg is sent when an error occurs
@@ -225,7 +230,10 @@ func (m listModel) loadBeans() tea.Msg {
 		idColWidth += maxDepth * 3 // 3 chars per depth level (├─ + space)
 	}
 
-	return beansLoadedMsg{items: items, idColWidth: idColWidth}
+	// Build blocked set from all beans (considers both blocked_by and blocking)
+	blockedSet := ui.BuildBlockedSet(allBeans)
+
+	return beansLoadedMsg{items: items, idColWidth: idColWidth, blockedSet: blockedSet}
 }
 
 // setTagFilter sets the tag filter
@@ -277,6 +285,7 @@ func (m listModel) Update(msg tea.Msg) (listModel, tea.Cmd) {
 		}
 		m.list.SetItems(items)
 		m.idColWidth = msg.idColWidth
+		m.blockedSet = msg.blockedSet
 		// Calculate responsive columns based on hasTags and width
 		m.cols = ui.CalculateResponsiveColumns(m.width, m.hasTags)
 		m.updateDelegate()
@@ -494,6 +503,7 @@ func (m *listModel) updateDelegate() {
 		cols:          m.cols,
 		idColWidth:    m.idColWidth,
 		selectedBeans: &m.selectedBeans,
+		blockedSet:    m.blockedSet,
 	}
 	m.list.SetDelegate(delegate)
 }

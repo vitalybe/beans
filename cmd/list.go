@@ -196,7 +196,7 @@ Search Syntax (--search/-S):
 			termWidth = w
 		}
 
-		fmt.Print(ui.RenderTree(tree, cfg, maxIDWidth, hasTags, termWidth))
+		fmt.Print(ui.RenderTree(tree, cfg, maxIDWidth, hasTags, termWidth, allBeans))
 		return nil
 	},
 }

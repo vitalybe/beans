@@ -208,3 +208,58 @@ func TestTreeNodeToJSON(t *testing.T) {
 		}
 	})
 }
+
+func TestBuildBlockedSet(t *testing.T) {
+	t.Run("blocked_by marks bean as blocked", func(t *testing.T) {
+		beans := []*bean.Bean{
+			{ID: "a", Title: "A"},
+			{ID: "b", Title: "B", BlockedBy: []string{"a"}},
+		}
+		blocked := BuildBlockedSet(beans)
+		if !blocked["b"] {
+			t.Error("expected bean B to be blocked (via blocked_by)")
+		}
+		if blocked["a"] {
+			t.Error("expected bean A to NOT be blocked")
+		}
+	})
+
+	t.Run("blocking marks target as blocked", func(t *testing.T) {
+		beans := []*bean.Bean{
+			{ID: "a", Title: "A", Blocking: []string{"b"}},
+			{ID: "b", Title: "B"},
+		}
+		blocked := BuildBlockedSet(beans)
+		if !blocked["b"] {
+			t.Error("expected bean B to be blocked (via A's blocking field)")
+		}
+		if blocked["a"] {
+			t.Error("expected bean A to NOT be blocked")
+		}
+	})
+
+	t.Run("both directions combined", func(t *testing.T) {
+		beans := []*bean.Bean{
+			{ID: "a", Title: "A", Blocking: []string{"c"}},
+			{ID: "b", Title: "B", BlockedBy: []string{"a"}},
+			{ID: "c", Title: "C"},
+		}
+		blocked := BuildBlockedSet(beans)
+		if !blocked["b"] {
+			t.Error("expected bean B to be blocked (via blocked_by)")
+		}
+		if !blocked["c"] {
+			t.Error("expected bean C to be blocked (via A's blocking field)")
+		}
+		if blocked["a"] {
+			t.Error("expected bean A to NOT be blocked")
+		}
+	})
+
+	t.Run("empty beans", func(t *testing.T) {
+		blocked := BuildBlockedSet(nil)
+		if len(blocked) != 0 {
+			t.Error("expected empty blocked set for nil beans")
+		}
+	})
+}

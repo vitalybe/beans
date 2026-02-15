@@ -168,9 +168,27 @@ func calculateMaxDepth(nodes []*TreeNode) int {
 	return maxDepth
 }
 
+// BuildBlockedSet builds a set of bean IDs that are blocked, considering both
+// blocked_by fields and incoming blocking links from other beans.
+func BuildBlockedSet(allBeans []*bean.Bean) map[string]bool {
+	blockedSet := make(map[string]bool)
+	for _, b := range allBeans {
+		// Direct blocked_by
+		if len(b.BlockedBy) > 0 {
+			blockedSet[b.ID] = true
+		}
+		// Incoming blocking links: if bean A blocks bean B, mark B as blocked
+		for _, targetID := range b.Blocking {
+			blockedSet[targetID] = true
+		}
+	}
+	return blockedSet
+}
+
 // RenderTree renders the tree as an ASCII tree with styled columns.
 // termWidth is used to calculate responsive column widths.
-func RenderTree(nodes []*TreeNode, cfg *config.Config, maxIDWidth int, hasTags bool, termWidth int) string {
+// allBeans is used to compute blocked status from both blocked_by and blocking relationships.
+func RenderTree(nodes []*TreeNode, cfg *config.Config, maxIDWidth int, hasTags bool, termWidth int, allBeans []*bean.Bean) string {
 	var sb strings.Builder
 
 	// Calculate max depth to determine ID column width
@@ -216,11 +234,15 @@ func RenderTree(nodes []*TreeNode, cfg *config.Config, maxIDWidth int, hasTags b
 	sb.WriteString(Muted.Render(strings.Repeat("─", dividerWidth)))
 	sb.WriteString("\n")
 
+	// Build blocked set from all beans
+	blockedSet := BuildBlockedSet(allBeans)
+
 	// Build render config from responsive columns
 	renderCfg := treeRenderConfig{
 		treeColWidth: treeColWidth,
 		titleWidth:   titleWidth,
 		cols:         cols,
+		blockedSet:   blockedSet,
 	}
 
 	// Render nodes (depth 0 = root level, no ancestry yet)
@@ -234,6 +256,7 @@ type treeRenderConfig struct {
 	treeColWidth int
 	titleWidth   int
 	cols         ResponsiveColumns
+	blockedSet   map[string]bool
 }
 
 // renderNodes recursively renders tree nodes with proper indentation.
@@ -286,7 +309,7 @@ func renderNode(sb *strings.Builder, node *TreeNode, depth int, isLast bool, anc
 		TypeColor:     colors.TypeColor,
 		PriorityColor: colors.PriorityColor,
 		Priority:      b.Priority,
-		IsBlocked:     len(b.BlockedBy) > 0,
+		IsBlocked:     renderCfg.blockedSet[b.ID],
 		IsArchive:     colors.IsArchive,
 		MaxTitleWidth: renderCfg.titleWidth,
 		ShowCursor:    false,
