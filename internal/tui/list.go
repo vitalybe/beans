@@ -81,6 +81,7 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 			TypeColor:     colors.TypeColor,
 			PriorityColor: colors.PriorityColor,
 			Priority:      item.bean.Priority,
+			IsBlocked:     len(item.bean.BlockedBy) > 0,
 			IsArchive:     colors.IsArchive,
 			MaxTitleWidth: maxTitleWidth,
 			ShowCursor:    true,

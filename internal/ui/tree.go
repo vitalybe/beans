@@ -286,6 +286,7 @@ func renderNode(sb *strings.Builder, node *TreeNode, depth int, isLast bool, anc
 		TypeColor:     colors.TypeColor,
 		PriorityColor: colors.PriorityColor,
 		Priority:      b.Priority,
+		IsBlocked:     len(b.BlockedBy) > 0,
 		IsArchive:     colors.IsArchive,
 		MaxTitleWidth: renderCfg.titleWidth,
 		ShowCursor:    false,

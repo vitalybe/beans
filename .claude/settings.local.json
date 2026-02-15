@@ -16,7 +16,8 @@
       "Bash(./beans update:*)",
       "Bash(./beans create:*)",
       "Bash(./beans list:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(git add:*)"
     ]
   }
 }
