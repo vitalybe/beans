@@ -11,7 +11,12 @@
       "Bash(go test:*)",
       "Bash(mise test:*)",
       "Bash(mise beans show:*)",
-      "Bash(git -C /Users/vitaly/git/beans log --oneline -5)"
+      "Bash(git -C /Users/vitaly/git/beans log --oneline -5)",
+      "Bash(beans create:*)",
+      "Bash(./beans update:*)",
+      "Bash(./beans create:*)",
+      "Bash(./beans list:*)",
+      "Bash(python3:*)"
     ]
   }
 }
