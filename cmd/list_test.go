@@ -211,49 +211,6 @@ func TestListReadyFlagMutualExclusion(t *testing.T) {
 	}
 }
 
-func TestListShowDoneDefaultExclusion(t *testing.T) {
-	// Test the logic for excluding completed/scrapped beans by default.
-	// The filter should add ExcludeStatus when:
-	// - --show-done is NOT set
-	// - --status is NOT explicitly set
-	// - --ready is NOT set
-	tests := []struct {
-		name           string
-		showDone       bool
-		statusFilter   []string
-		ready          bool
-		expectExcluded bool
-	}{
-		{"default excludes done", false, nil, false, true},
-		{"--show-done includes done", true, nil, false, false},
-		{"explicit --status overrides", false, []string{"completed"}, false, false},
-		{"--ready already excludes", false, nil, true, false},
-		{"--show-done with --status", true, []string{"todo"}, false, false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Simulate the filter logic from list.go RunE
-			excludeStatus := []string{}
-			if !tt.showDone && len(tt.statusFilter) == 0 && !tt.ready {
-				excludeStatus = append(excludeStatus, "completed", "scrapped")
-			}
-
-			gotExcluded := len(excludeStatus) > 0
-			if gotExcluded != tt.expectExcluded {
-				t.Errorf("showDone=%v, status=%v, ready=%v: got excluded=%v, want %v",
-					tt.showDone, tt.statusFilter, tt.ready, gotExcluded, tt.expectExcluded)
-			}
-
-			if tt.expectExcluded {
-				if excludeStatus[0] != "completed" || excludeStatus[1] != "scrapped" {
-					t.Errorf("expected [completed, scrapped], got %v", excludeStatus)
-				}
-			}
-		})
-	}
-}
-
 func TestTruncate(t *testing.T) {
 	tests := []struct {
 		name   string

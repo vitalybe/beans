@@ -8,9 +8,8 @@ import (
 )
 
 var (
-	tuiSort     string
-	tuiSortr    string
-	tuiShowDone bool
+	tuiSort  string
+	tuiSortr string
 )
 
 var tuiCmd = &cobra.Command{
@@ -22,9 +21,7 @@ var tuiCmd = &cobra.Command{
 			return fmt.Errorf("--sort and --sortr are mutually exclusive")
 		}
 
-		sortOpts := tui.SortOptions{
-			ShowDone: tuiShowDone,
-		}
+		sortOpts := tui.SortOptions{}
 		if tuiSort != "" {
 			sortOpts.SortBy = tuiSort
 		}
@@ -40,6 +37,5 @@ var tuiCmd = &cobra.Command{
 func init() {
 	tuiCmd.Flags().StringVar(&tuiSort, "sort", "", "Sort by: created, updated, status, priority, id (default: status, priority, type, title)")
 	tuiCmd.Flags().StringVar(&tuiSortr, "sortr", "", "Sort by (reversed): created, updated, status, priority, id")
-	tuiCmd.Flags().BoolVar(&tuiShowDone, "show-done", false, "Include completed and scrapped beans")
 	rootCmd.AddCommand(tuiCmd)
 }
