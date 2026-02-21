@@ -252,4 +252,6 @@ input BeanFilter {
   noBlocking: Boolean
   "Exclude beans that have explicit blocked-by entries"
   noBlockedBy: Boolean
+  "Include archived beans in results (default: false)"
+  includeArchived: Boolean
 }

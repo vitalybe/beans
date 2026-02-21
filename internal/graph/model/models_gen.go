@@ -54,6 +54,8 @@ type BeanFilter struct {
 	NoBlocking *bool `json:"noBlocking,omitempty"`
 	// Exclude beans that have explicit blocked-by entries
 	NoBlockedBy *bool `json:"noBlockedBy,omitempty"`
+	// Include archived beans in results (default: false)
+	IncludeArchived *bool `json:"includeArchived,omitempty"`
 }
 
 // Structured body modifications applied atomically.

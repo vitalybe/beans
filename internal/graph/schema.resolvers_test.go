@@ -2772,3 +2772,90 @@ func TestRemoveBlockingWithETag(t *testing.T) {
 	})
 }
 
+func TestArchivedBeansExcludedByDefault(t *testing.T) {
+	resolver, core := setupTestResolver(t)
+	ctx := context.Background()
+
+	// Create test beans
+	createTestBean(t, core, "active-1", "Active Bean", "todo")
+	createTestBean(t, core, "done-1", "Done Bean", "completed")
+
+	// Archive the completed bean
+	if err := core.Archive("done-1"); err != nil {
+		t.Fatalf("Archive() error = %v", err)
+	}
+
+	t.Run("no filter excludes archived", func(t *testing.T) {
+		qr := resolver.Query()
+		got, err := qr.Beans(ctx, nil)
+		if err != nil {
+			t.Fatalf("Beans() error = %v", err)
+		}
+		if len(got) != 1 {
+			t.Errorf("Beans() count = %d, want 1", len(got))
+		}
+		if got[0].ID != "active-1" {
+			t.Errorf("Beans()[0].ID = %q, want %q", got[0].ID, "active-1")
+		}
+	})
+
+	t.Run("empty filter excludes archived", func(t *testing.T) {
+		qr := resolver.Query()
+		got, err := qr.Beans(ctx, &model.BeanFilter{})
+		if err != nil {
+			t.Fatalf("Beans() error = %v", err)
+		}
+		if len(got) != 1 {
+			t.Errorf("Beans() count = %d, want 1", len(got))
+		}
+	})
+
+	t.Run("includeArchived shows all", func(t *testing.T) {
+		qr := resolver.Query()
+		includeArchived := true
+		got, err := qr.Beans(ctx, &model.BeanFilter{
+			IncludeArchived: &includeArchived,
+		})
+		if err != nil {
+			t.Fatalf("Beans() error = %v", err)
+		}
+		if len(got) != 2 {
+			t.Errorf("Beans() count = %d, want 2", len(got))
+		}
+	})
+
+	t.Run("children exclude archived", func(t *testing.T) {
+		// Create a parent with active and archived children
+		parent := &bean.Bean{ID: "parent-1", Title: "Parent", Status: "todo", Type: "epic"}
+		if err := core.Create(parent); err != nil {
+			t.Fatalf("Create parent error = %v", err)
+		}
+
+		child1 := &bean.Bean{ID: "child-1", Title: "Active Child", Status: "todo", Type: "task", Parent: "parent-1"}
+		if err := core.Create(child1); err != nil {
+			t.Fatalf("Create child1 error = %v", err)
+		}
+
+		child2 := &bean.Bean{ID: "child-2", Title: "Done Child", Status: "completed", Type: "task", Parent: "parent-1"}
+		if err := core.Create(child2); err != nil {
+			t.Fatalf("Create child2 error = %v", err)
+		}
+
+		if err := core.Archive("child-2"); err != nil {
+			t.Fatalf("Archive child2 error = %v", err)
+		}
+
+		br := resolver.Bean()
+		children, err := br.Children(ctx, parent, nil)
+		if err != nil {
+			t.Fatalf("Children() error = %v", err)
+		}
+		if len(children) != 1 {
+			t.Errorf("Children() count = %d, want 1", len(children))
+		}
+		if len(children) > 0 && children[0].ID != "child-1" {
+			t.Errorf("Children()[0].ID = %q, want %q", children[0].ID, "child-1")
+		}
+	})
+}
+

@@ -9,6 +9,12 @@ import (
 // ApplyFilter applies BeanFilter to a slice of beans and returns filtered results.
 // This is used by both the top-level beans query and relationship field resolvers.
 func ApplyFilter(beans []*bean.Bean, filter *model.BeanFilter, core *beancore.Core) []*bean.Bean {
+	// Always exclude archived beans unless explicitly requested
+	includeArchived := filter != nil && filter.IncludeArchived != nil && *filter.IncludeArchived
+	if !includeArchived {
+		beans = filterOutArchived(beans, core)
+	}
+
 	if filter == nil {
 		return beans
 	}
@@ -87,6 +93,17 @@ func ApplyFilter(beans []*bean.Bean, filter *model.BeanFilter, core *beancore.Co
 		result = filterByNoBlockedBy(result)
 	}
 
+	return result
+}
+
+// filterOutArchived removes archived beans from the slice.
+func filterOutArchived(beans []*bean.Bean, core *beancore.Core) []*bean.Bean {
+	var result []*bean.Bean
+	for _, b := range beans {
+		if !core.IsArchived(b.ID) {
+			result = append(result, b)
+		}
+	}
 	return result
 }
 
