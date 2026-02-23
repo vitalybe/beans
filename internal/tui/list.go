@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
@@ -405,6 +406,11 @@ func (m listModel) Update(msg tea.Msg) (listModel, tea.Cmd) {
 						}
 					}
 				}
+			case "S":
+				// Open sort picker
+				return m, func() tea.Msg {
+					return openSortPickerMsg{currentSortBy: m.sortOpts.SortBy}
+				}
 			case "b":
 				// Open blocking picker for selected bean
 				if item, ok := m.list.SelectedItem().(beanItem); ok {
@@ -505,12 +511,8 @@ func (m listModel) View() string {
 		return "Loading..."
 	}
 
-	// Update title based on active filter
-	if m.tagFilter != "" {
-		m.list.Title = fmt.Sprintf("Beans [tag: %s]", m.tagFilter)
-	} else {
-		m.list.Title = "Beans"
-	}
+	// Update title based on active filter and sort
+	m.list.Title = m.buildTitle()
 
 	// Inner height: total height minus border (2) minus footer (1) minus padding (1)
 	return m.viewContent(m.height-4) + "\n" + m.Footer()
@@ -544,6 +546,7 @@ func (m listModel) Footer() string {
 		help = helpKeyStyle.Render("space") + " " + helpStyle.Render("toggle") + "  " +
 			helpKeyStyle.Render("P") + " " + helpStyle.Render("priority") + "  " +
 			helpKeyStyle.Render("s") + " " + helpStyle.Render("status") + "  " +
+			helpKeyStyle.Render("S") + " " + helpStyle.Render("sort") + "  " +
 			helpKeyStyle.Render("t") + " " + helpStyle.Render("type") + "  " +
 			helpKeyStyle.Render("y") + " " + helpStyle.Render("copy id") + "  " +
 			helpKeyStyle.Render("esc") + " " + helpStyle.Render("clear selection") + "  " +
@@ -558,6 +561,7 @@ func (m listModel) Footer() string {
 			helpKeyStyle.Render("p") + " " + helpStyle.Render("parent") + "  " +
 			helpKeyStyle.Render("P") + " " + helpStyle.Render("priority") + "  " +
 			helpKeyStyle.Render("s") + " " + helpStyle.Render("status") + "  " +
+			helpKeyStyle.Render("S") + " " + helpStyle.Render("sort") + "  " +
 			helpKeyStyle.Render("t") + " " + helpStyle.Render("type") + "  " +
 			helpKeyStyle.Render("y") + " " + helpStyle.Render("copy id") + "  " +
 			helpKeyStyle.Render("esc") + " " + helpStyle.Render("clear filter") + "  " +
@@ -572,6 +576,7 @@ func (m listModel) Footer() string {
 			helpKeyStyle.Render("p") + " " + helpStyle.Render("parent") + "  " +
 			helpKeyStyle.Render("P") + " " + helpStyle.Render("priority") + "  " +
 			helpKeyStyle.Render("s") + " " + helpStyle.Render("status") + "  " +
+			helpKeyStyle.Render("S") + " " + helpStyle.Render("sort") + "  " +
 			helpKeyStyle.Render("t") + " " + helpStyle.Render("type") + "  " +
 			helpKeyStyle.Render("y") + " " + helpStyle.Render("copy id") + "  " +
 			helpKeyStyle.Render("/") + " " + helpStyle.Render("filter") + "  " +
@@ -591,6 +596,22 @@ func (m listModel) Footer() string {
 	return footer
 }
 
+// buildTitle returns the list title with active filter and sort indicators
+func (m listModel) buildTitle() string {
+	title := "Beans"
+	var indicators []string
+	if m.tagFilter != "" {
+		indicators = append(indicators, fmt.Sprintf("tag: %s", m.tagFilter))
+	}
+	if m.sortOpts.SortBy != "" {
+		indicators = append(indicators, fmt.Sprintf("sort: %s", sortLabel(m.sortOpts.SortBy)))
+	}
+	if len(indicators) > 0 {
+		title += " [" + fmt.Sprintf("%s", strings.Join(indicators, " | ")) + "]"
+	}
+	return title
+}
+
 // ViewConstrained renders the list constrained to the given width and height.
 // Used for the left pane in two-column mode. Returns only the content without footer.
 // The output will be exactly `height` lines tall.
@@ -607,12 +628,8 @@ func (m listModel) ViewConstrained(width, height int) string {
 	m.cols = ui.CalculateResponsiveColumns(width, m.hasTags)
 	m.updateDelegate()
 
-	// Update title based on active filter
-	if m.tagFilter != "" {
-		m.list.Title = fmt.Sprintf("Beans [tag: %s]", m.tagFilter)
-	} else {
-		m.list.Title = "Beans"
-	}
+	// Update title based on active filter and sort
+	m.list.Title = m.buildTitle()
 
 	return m.viewContent(innerHeight)
 }

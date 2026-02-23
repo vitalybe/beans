@@ -86,6 +86,7 @@ func (m helpOverlayModel) View() string {
 	content.WriteString(shortcut("p", "Set parent") + "\n")
 	content.WriteString(shortcut("P", "Change priority") + "\n")
 	content.WriteString(shortcut("s", "Change status") + "\n")
+	content.WriteString(shortcut("S", "Change sort order") + "\n")
 	content.WriteString(shortcut("t", "Change type") + "\n")
 	content.WriteString(shortcut("y", "Copy bean ID") + "\n")
 	content.WriteString(shortcut("/", "Filter") + "\n")

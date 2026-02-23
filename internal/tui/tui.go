@@ -32,6 +32,7 @@ const (
 	viewPriorityPicker
 	viewCreateModal
 	viewHelpOverlay
+	viewSortPicker
 )
 
 // Two-column layout constants
@@ -114,6 +115,7 @@ type App struct {
 	priorityPicker priorityPickerModel
 	createModal    createModalModel
 	helpOverlay    helpOverlayModel
+	sortPicker     sortPickerModel
 	history        []detailModel // stack of previous detail views for back navigation
 	core           *beancore.Core
 	resolver       *graph.Resolver
@@ -214,7 +216,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return a, a.helpOverlay.Init()
 			}
 		case "q":
-			if a.state == viewDetail || a.state == viewTagPicker || a.state == viewParentPicker || a.state == viewStatusPicker || a.state == viewTypePicker || a.state == viewBlockingPicker || a.state == viewPriorityPicker || a.state == viewHelpOverlay {
+			if a.state == viewDetail || a.state == viewTagPicker || a.state == viewParentPicker || a.state == viewStatusPicker || a.state == viewTypePicker || a.state == viewBlockingPicker || a.state == viewPriorityPicker || a.state == viewHelpOverlay || a.state == viewSortPicker {
 				return a, tea.Quit
 			}
 			// For list, only quit if not filtering
@@ -410,6 +412,21 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case closeHelpMsg:
 		a.state = a.previousState
 		return a, nil
+
+	case openSortPickerMsg:
+		a.previousState = a.state
+		a.sortPicker = newSortPickerModel(msg.currentSortBy, a.width, a.height)
+		a.state = viewSortPicker
+		return a, a.sortPicker.Init()
+
+	case closeSortPickerMsg:
+		a.state = a.previousState
+		return a, nil
+
+	case sortSelectedMsg:
+		a.state = a.previousState
+		a.list.sortOpts.SortBy = msg.sortBy
+		return a, a.list.loadBeans
 
 	case openBlockingPickerMsg:
 		a.previousState = a.state
@@ -613,6 +630,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.createModal, cmd = a.createModal.Update(msg)
 	case viewHelpOverlay:
 		a.helpOverlay, cmd = a.helpOverlay.Update(msg)
+	case viewSortPicker:
+		a.sortPicker, cmd = a.sortPicker.Update(msg)
 	}
 
 	return a, cmd
@@ -684,6 +703,8 @@ func (a *App) View() string {
 		return a.createModal.ModalView(a.getBackgroundView(), a.width, a.height)
 	case viewHelpOverlay:
 		return a.helpOverlay.ModalView(a.getBackgroundView(), a.width, a.height)
+	case viewSortPicker:
+		return a.sortPicker.ModalView(a.getBackgroundView(), a.width, a.height)
 	}
 	return ""
 }

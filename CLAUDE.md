@@ -20,6 +20,7 @@ You already know what beans is. This is the beans repository.
 - The `internal/graph/` package provides a GraphQL resolver that can be used to query and mutate beans.
 - All CLI commands that interact with beans should internally use GraphQL queries/mutations.
 - `mise build` to build a `./beans` executable
+- Always use `mise` commands (mise build, mise test, mise beans, mise codegen) instead of invoking `go` directly.
 
 # Extra rules for our own beans/issues
 
@@ -31,7 +32,7 @@ You already know what beans is. This is the beans repository.
 
 - Always write or update tests for the changes you make.
 - Run all tests: `mise test`
-- Run specific package: `go test ./internal/bean/`
+- Run specific package: `mise test -- ./internal/bean/`
 - Use table-driven tests following Go conventions
 
 ## Manual CLI Testing
