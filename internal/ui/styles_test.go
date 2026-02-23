@@ -100,8 +100,8 @@ func TestRenderBeanRow_BlockedIndicator(t *testing.T) {
 			IsBlocked:     true,
 		}
 		result := RenderBeanRow("abc123", "todo", "task", "My blocked task", cfg)
-		if !strings.Contains(result, "[B]") {
-			t.Error("expected blocked indicator [B] in output")
+		if !strings.Contains(result, "🚫") {
+			t.Error("expected blocked indicator in output")
 		}
 	})
 
@@ -113,7 +113,7 @@ func TestRenderBeanRow_BlockedIndicator(t *testing.T) {
 			IsBlocked:     false,
 		}
 		result := RenderBeanRow("abc123", "todo", "task", "My task", cfg)
-		if strings.Contains(result, "[B]") {
+		if strings.Contains(result, "🚫") {
 			t.Error("expected no blocked indicator in output")
 		}
 	})
@@ -127,7 +127,7 @@ func TestRenderBeanRow_BlockedIndicator(t *testing.T) {
 			Dimmed:        true,
 		}
 		result := RenderBeanRow("abc123", "todo", "task", "Dimmed task", cfg)
-		if strings.Contains(result, "[B]") {
+		if strings.Contains(result, "🚫") {
 			t.Error("expected no blocked indicator for dimmed row")
 		}
 	})
