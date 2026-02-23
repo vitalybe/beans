@@ -1,9 +1,6 @@
 package ui
 
-import (
-	"strings"
-	"testing"
-)
+import "testing"
 
 func TestRenderBeanRow_NarrowWidth(t *testing.T) {
 	// Test that RenderBeanRow doesn't panic with very small MaxTitleWidth values
@@ -87,70 +84,6 @@ func TestRenderBeanRow_NarrowWidthWithPriority(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestRenderBeanRow_BlockedIndicator(t *testing.T) {
-	// Test that blocked beans show the 🚫 indicator and don't panic at narrow widths
-
-	t.Run("blocked bean contains indicator", func(t *testing.T) {
-		cfg := BeanRowConfig{
-			MaxTitleWidth: 40,
-			StatusColor:   "green",
-			TypeColor:     "blue",
-			IsBlocked:     true,
-		}
-		result := RenderBeanRow("abc123", "todo", "task", "My blocked task", cfg)
-		if !strings.Contains(result, "🚫") {
-			t.Error("expected blocked indicator in output")
-		}
-	})
-
-	t.Run("non-blocked bean has no indicator", func(t *testing.T) {
-		cfg := BeanRowConfig{
-			MaxTitleWidth: 40,
-			StatusColor:   "green",
-			TypeColor:     "blue",
-			IsBlocked:     false,
-		}
-		result := RenderBeanRow("abc123", "todo", "task", "My task", cfg)
-		if strings.Contains(result, "🚫") {
-			t.Error("expected no blocked indicator in output")
-		}
-	})
-
-	t.Run("dimmed blocked bean has no indicator", func(t *testing.T) {
-		cfg := BeanRowConfig{
-			MaxTitleWidth: 40,
-			StatusColor:   "green",
-			TypeColor:     "blue",
-			IsBlocked:     true,
-			Dimmed:        true,
-		}
-		result := RenderBeanRow("abc123", "todo", "task", "Dimmed task", cfg)
-		if strings.Contains(result, "🚫") {
-			t.Error("expected no blocked indicator for dimmed row")
-		}
-	})
-
-	t.Run("narrow width with blocked does not panic", func(t *testing.T) {
-		for _, width := range []int{0, 1, 2, 3, 4, 5} {
-			defer func() {
-				if r := recover(); r != nil {
-					t.Errorf("RenderBeanRow panicked with MaxTitleWidth=%d and IsBlocked=true: %v", width, r)
-				}
-			}()
-			cfg := BeanRowConfig{
-				MaxTitleWidth: width,
-				StatusColor:   "green",
-				TypeColor:     "blue",
-				IsBlocked:     true,
-			}
-			result := RenderBeanRow("abc123", "todo", "task", "Long title", cfg)
-			if result == "" {
-				t.Error("expected non-empty result")
-			}
-		}
-	})
 }
 
 func TestShortType(t *testing.T) {

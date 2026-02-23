@@ -361,7 +361,6 @@ type BeanRowConfig struct {
 	TagsColWidth  int      // Width of tags column (0 = default)
 	MaxTags       int      // Max tags to show (0 = default of 1)
 	TreePrefix    string   // Tree prefix (e.g., "├─" or "  └─") to prepend to ID
-	IsBlocked     bool     // Bean is blocked by another bean
 	Dimmed        bool     // Render row dimmed (for unmatched ancestor beans in tree)
 	IDColWidth    int      // Width of ID column (0 = default of ColWidthID)
 	UseFullNames  bool     // Use full type/status names instead of single-char abbreviations
@@ -548,21 +547,12 @@ func RenderBeanRow(id, status, typeName, title string, cfg BeanRowConfig) string
 		}
 	}
 
-	// Blocked indicator (prepended to title)
-	var blockedIndicator string
-	if cfg.IsBlocked && !cfg.Dimmed {
-		blockedIndicator = "🚫 "
-	}
-
-	// Title (truncate if needed, accounting for priority symbol and blocked indicator width)
+	// Title (truncate if needed, accounting for priority symbol width)
 	displayTitle := title
 	titleColWidth := cfg.MaxTitleWidth // Save original for padding
 	maxWidth := cfg.MaxTitleWidth
 	if maxWidth > 0 && prioritySymbol != "" {
 		maxWidth -= 2 // Account for symbol + space
-	}
-	if maxWidth > 0 && blockedIndicator != "" {
-		maxWidth -= 3 // Account for emoji (2 wide) + space
 	}
 	if maxWidth > 3 && len(title) > maxWidth {
 		displayTitle = title[:maxWidth-3] + "..."
@@ -601,14 +591,11 @@ func RenderBeanRow(id, status, typeName, title string, cfg BeanRowConfig) string
 		if prioritySymbol != "" {
 			titleLen += 2 // symbol + space
 		}
-		if blockedIndicator != "" {
-			titleLen += 3 // emoji (2 wide) + space
-		}
 		padding := ""
 		if titleColWidth > titleLen {
 			padding = strings.Repeat(" ", titleColWidth-titleLen)
 		}
-		return cursor + idCol + " " + typeCol + " " + statusCol + " " + prioritySymbol + blockedIndicator + titleStyled + padding + " " + tagsCol
+		return cursor + idCol + " " + typeCol + " " + statusCol + " " + prioritySymbol + titleStyled + padding + " " + tagsCol
 	}
-	return cursor + idCol + " " + typeCol + " " + statusCol + " " + prioritySymbol + blockedIndicator + titleStyled
+	return cursor + idCol + " " + typeCol + " " + statusCol + " " + prioritySymbol + titleStyled
 }
